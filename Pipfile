@@ -5,12 +5,11 @@ name = "pypi"
 
 [packages]
 PyYAML = "==5.4.*"
-click = "==7.1.*"
 inflection = "==0.5.*"
 requests = "==2.25.*"
-ipython = "*"
 
 [dev-packages]
+ipython = "*"
 
 [requires]
 python_version = "3.8"
