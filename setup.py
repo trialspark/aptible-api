@@ -25,7 +25,7 @@ setuptools.setup(
     python_requires=">=3.6",
     install_requires=[
         'PyYAML>=5.4',
-        'inflections>=0.5',
+        'inflection>=0.5',
         'requests>=2.25',
     ]
 )
