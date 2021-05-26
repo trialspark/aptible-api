@@ -11,9 +11,9 @@ class AptibleApi(ApiManager):
         self.bearer_token = None
         super().__init__(api_base=api_base)
 
-    def authorize(self, email: str, password: str, scope: str = "manage", expires_in: int = 86400, otp_token: str = None, token: str = None) -> None:
+    def authorize(self, token: str = None, email: str = None, password: str = None, scope: str = "manage", expires_in: int = 86400, otp_token: str = None) -> bool:
         if token:
-            self.bearer_token = bearer_token
+            self.bearer_token = token
 
         else:
             auth_api = AptibleAuthApi()
@@ -27,6 +27,8 @@ class AptibleApi(ApiManager):
             )
             self.bearer_token = self.token.access_token
 
+        return self.authorized
+
     @property
     def request_headers(self) -> Dict:
         return {
@@ -34,3 +36,7 @@ class AptibleApi(ApiManager):
             'Content-Type': 'application/json',
             'Authorization': f'Bearer {self.bearer_token}',
         }
+
+    @property
+    def authorized(self) -> bool:
+        return self.token is not None
