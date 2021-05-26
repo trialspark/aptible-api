@@ -2,7 +2,7 @@ import requests
 from typing import Dict
 from .api_manager import ApiManager
 from .aptible_auth_api import AptibleAuthApi
-
+from ..model.empty_resource import EmptyResource
 
 class AptibleApi(ApiManager):
     # pylint: disable=inconsistent-return-statements
@@ -39,4 +39,4 @@ class AptibleApi(ApiManager):
 
     @property
     def authorized(self) -> bool:
-        return self.token is not None
+        return bool(self.bearer_token)
