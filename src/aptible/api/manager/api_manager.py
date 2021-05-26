@@ -14,8 +14,8 @@ class ApiManager:
     # pylint: disable=inconsistent-return-statements
 
     def __init__(self, api_base: str):
-        self.api_base = api_base
-        self.api_base = self.fetch(self.api_base)
+        self.api_uri_base = api_base
+        self.api_base = self.fetch(self.api_uri_base)
 
     @property
     def request_headers(self) -> Dict:
@@ -103,7 +103,7 @@ class ApiManager:
 
     @fetch.register
     def _(self, klass: type, resource_id: int) -> Union[EmptyResource, Resource, Iterator[Resource]]:
-        target_url = urljoin(self.api_base, klass.api_path)
+        target_url = urljoin(self.api_uri_base, klass.api_path)
         return self.fetch(target_url.format(resource_id))
 
     @fetch.register
