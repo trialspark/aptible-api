@@ -1,26 +1,32 @@
 from typing import Dict
 
-import requests
-
-from ..model.empty_resource import EmptyResource
 from .api_manager import ApiManager
 from .aptible_auth_api import AptibleAuthApi
 
 
 class AptibleApi(ApiManager):
-    # pylint: disable=inconsistent-return-statements
+    # pylint: disable=inconsistent-return-statements, too-many-arguments
 
     def __init__(self, api_base: str = "https://api.aptible.com"):
+        self._token = None
         self.bearer_token = None
         super().__init__(api_base=api_base)
 
-    def authorize(self, token: str = None, email: str = None, password: str = None, scope: str = "manage", expires_in: int = 86400, otp_token: str = None) -> bool:
+    def authorize(
+        self,
+        token: str = None,
+        email: str = None,
+        password: str = None,
+        scope: str = "manage",
+        expires_in: int = 86400,
+        otp_token: str = None
+    ) -> bool:
         if token:
             self.bearer_token = token
 
         else:
             auth_api = AptibleAuthApi()
-            self.token = auth_api.create_token(
+            self._token = auth_api.create_token(
                 grant_type="password",
                 username=email,
                 password=password,
@@ -28,7 +34,7 @@ class AptibleApi(ApiManager):
                 scope=scope,
                 expires_in=expires_in
             )
-            self.bearer_token = self.token.access_token
+            self.bearer_token = self._token.access_token
 
         return self.authorized
 

@@ -1,14 +1,27 @@
 from functools import singledispatchmethod
-from typing import Dict, Iterator, List, Union
-from urllib.parse import parse_qs, urlparse
+from typing import Dict, Iterator, Union
 
 import requests
 from inflection import camelize, singularize
 from requests.compat import urljoin
 
+from .url_util import parse_url_params, response_request_headers, response_request_params
 from .. import model
 from ..error import UnknownResourceInflation
 from ..model import Resource, ResourceClassFactory
+
+
+def lookup_resource_class_by_name(name: str):
+    class_name = singularize(camelize(name))
+
+    klass = None
+    try:
+        klass = getattr(model, class_name)
+    except AttributeError:
+        klass = ResourceClassFactory(class_name)
+        setattr(model, class_name, klass)
+
+    return klass
 
 
 class ApiManager:
@@ -25,18 +38,6 @@ class ApiManager:
             'Content-Type': 'application/json',
         }
 
-    def _resource_class(self, name: str):
-        class_name = singularize(camelize(name))
-
-        klass = None
-        try:
-            klass = getattr(model, class_name)
-        except AttributeError:
-            klass = ResourceClassFactory(class_name)
-            setattr(model, class_name, klass)
-
-        return klass
-
     def _request(self, method: str, url: str, **kwargs) -> requests.Response:
         if 'headers' not in kwargs:
             kwargs['headers'] = dict()
@@ -52,26 +53,9 @@ class ApiManager:
     def _post(self, url: str, **kwargs) -> requests.Response:
         return self._request('post', url, **kwargs)
 
-    def _response_request_headers(self, response: requests.Response) -> Dict[str, str]:
-        return response.request.headers
-
-    def _parse_url_params(self, url: str) -> Dict[str, Union[str, List[str]]]:
-        parse_result = urlparse(url)
-        query_params = parse_qs(parse_result.query, keep_blank_values=True)
-
-        # Flatten query_params values
-        return {
-            key: value if len(value) > 1 else value[0]
-            for key, value in query_params.items()
-        }
-
-    def _response_request_params(self, response: requests.Response) -> Dict[str, Union[str, List[str]]]:
-        request_url = response.request.url
-        return self._parse_url_params(request_url)
-
     def _inflate_type(self, resource_data: Dict) -> Resource:
         resource_type = resource_data["_type"]
-        klass = self._resource_class(resource_type)
+        klass = lookup_resource_class_by_name(resource_type)
         return klass(_manager=self, **resource_data)
 
     def _inflate_generator(self, response: requests.Response) -> Iterator[Resource]:
@@ -82,11 +66,11 @@ class ApiManager:
                 yield self._inflate_type(data)
 
         if "next" in resource_data["_links"]:
-            headers = self._response_request_headers(response)
-            params = self._response_request_params(response)
+            headers = response_request_headers(response)
+            params = response_request_params(response)
 
             next_url = resource_data["_links"]["next"]["href"]
-            next_params = self._parse_url_params(next_url)
+            next_params = parse_url_params(next_url)
 
             params.update(next_params)
 
@@ -133,7 +117,7 @@ class ApiManager:
 
     def __getattr__(self, name):
         if name[:6] == "fetch_":
-            klass = self._resource_class(name[6:])
+            klass = lookup_resource_class_by_name(name[6:])
 
             def _typed_fetch(resource_id: int, **kwargs):
                 return self.fetch(klass, resource_id, **kwargs)
@@ -143,8 +127,8 @@ class ApiManager:
         # Delegate attrs to api_base
         try:
             delegated_attr_val = getattr(self.api_base, name)
-        except AttributeError:
+        except AttributeError as err:
             # Clean up error messaging to AttributeError comes from this class
-            raise AttributeError(f"{type(self)} object has no attribute {name}")
+            raise AttributeError(f"{type(self)} object has no attribute {name}") from err
 
         return delegated_attr_val
