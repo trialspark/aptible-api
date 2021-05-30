@@ -1,14 +1,14 @@
-import requests
-
 from functools import singledispatchmethod
-from requests.compat import urljoin
-from typing import Dict, Union, Iterator, List
+from typing import Dict, Iterator, List, Union
+from urllib.parse import parse_qs, urlparse
+
+import requests
 from inflection import camelize, singularize
-from urllib.parse import urlparse, parse_qs
+from requests.compat import urljoin
 
 from .. import model
-from ..model import Resource, ResourceClassFactory
 from ..error import UnknownResourceInflation
+from ..model import Resource, ResourceClassFactory
 
 
 class ApiManager:

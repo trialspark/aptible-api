@@ -1,8 +1,11 @@
-import requests
 from typing import Dict
+
+import requests
+
+from ..model.empty_resource import EmptyResource
 from .api_manager import ApiManager
 from .aptible_auth_api import AptibleAuthApi
-from ..model.empty_resource import EmptyResource
+
 
 class AptibleApi(ApiManager):
     # pylint: disable=inconsistent-return-statements

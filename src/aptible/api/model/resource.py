@@ -1,8 +1,10 @@
 from __future__ import annotations
 
-from inflection import pluralize, underscore
-from typing import Dict, Union, Iterator, Any, List
 from datetime import datetime
+from typing import Any, Dict, Iterator, List, Union
+
+from inflection import pluralize, underscore
+
 from ..error import UnknownEmbeddedResourceType
 
 
