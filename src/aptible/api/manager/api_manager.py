@@ -1,13 +1,12 @@
-import requests
-
 from functools import singledispatchmethod
-from requests.compat import urljoin
-from typing import Dict, Union, Iterator
-from inflection import camelize, singularize
+from typing import Dict, Iterator, Union
 
-from .empty_response import EmptyResponse
-from .. import model
-from ..model import Resource, EmptyResource, ResourceClassFactory
+import requests
+from requests.compat import urljoin
+
+from .url_util import parse_url_params, response_request_headers, response_request_params
+from ..error import UnknownResourceInflation
+from ..model import Resource, lookup_resource_class_by_name
 
 
 class ApiManager:
@@ -24,21 +23,98 @@ class ApiManager:
             'Content-Type': 'application/json',
         }
 
-    def _resource_class(self, name: str):
-        class_name = singularize(camelize(name))
+    def _request(self, method: str, url: str, **kwargs) -> requests.Response:
+        if 'headers' not in kwargs:
+            kwargs['headers'] = dict()
+        kwargs['headers'].update(self.request_headers)
 
-        klass = None
-        try:
-            klass = getattr(model, class_name)
-        except AttributeError:
-            klass = ResourceClassFactory(class_name)
-            setattr(model, class_name, klass)
+        response = requests.request(method, url, **kwargs)
+        response.raise_for_status()
+        return response
 
-        return klass
+    def _get(self, url: str, **kwargs) -> requests.Response:
+        return self._request('get', url, **kwargs)
+
+    def _post(self, url: str, **kwargs) -> requests.Response:
+        return self._request('post', url, **kwargs)
+
+    def _inflate_type(self, resource_data: Dict) -> Resource:
+        resource_type = resource_data["_type"]
+        klass = lookup_resource_class_by_name(resource_type)
+        return klass(_manager=self, **resource_data)
+
+    def _inflate_generator(self, response: requests.Response) -> Iterator[Resource]:
+        resource_data = response.json()
+
+        for value in resource_data["_embedded"].values():
+            for data in value:
+                yield self._inflate_type(data)
+
+        if "next" in resource_data["_links"]:
+            headers = response_request_headers(response)
+            params = response_request_params(response)
+
+            next_url = resource_data["_links"]["next"]["href"]
+            next_params = parse_url_params(next_url)
+
+            params.update(next_params)
+
+            next_response = self._get(next_url, headers=headers, params=params)
+            yield from self._inflate_generator(next_response)
+
+    def _inflate(self, response: requests.Response) -> Union[Resource, Iterator[Resource]]:
+        resource_data = response.json()
+
+        # Single resource
+        if "_type" in resource_data:
+            return self._inflate_type(resource_data)
+
+        # List of resources
+        if "_embedded" in resource_data:
+            return self._inflate_generator(response)
+
+        # Fallback for API base
+        if "_links" in resource_data:
+            return Resource(_manager=self, **resource_data)
+
+        raise UnknownResourceInflation(f"Attempt to inflate resource data failed: {resource_data}")
+
+    @singledispatchmethod
+    def inflate(self, *args, **kwargs) -> Union[Resource, Iterator[Resource]]:
+        raise NotImplementedError()
+
+    @inflate.register
+    def _(self, response: requests.Response) -> Union[Resource, Iterator[Resource]]:
+        return self._inflate(response)
+
+    @inflate.register
+    def _(self, resource_data: dict) -> Union[Resource, Iterator[Resource]]:
+        return self._inflate_type(resource_data)
+
+    @singledispatchmethod
+    def fetch(self, *args, **kwargs) -> Union[Resource, Iterator[Resource]]:
+        raise NotImplementedError()
+
+    @fetch.register
+    def _(self, url: str, **kwargs) -> Union[Resource, Iterator[Resource]]:
+        kwargs = kwargs if 'params' in kwargs else {'params': kwargs}
+        response = self._get(url, **kwargs)
+        return self._inflate(response)
+
+    @fetch.register
+    def _(self, klass: type, resource_id: int, **kwargs) -> Union[Resource, Iterator[Resource]]:
+        target_url_template = urljoin(self.api_base, klass.api_path)
+        target_url = target_url_template.format(resource_id)
+        return self.fetch(target_url, **kwargs)
+
+    def create(self, url: str, **kwargs) -> Union[Resource, Iterator[Resource]]:
+        kwargs = kwargs if 'data' in kwargs else {'data': kwargs}
+        response = self._post(url, **kwargs)
+        return self._inflate(response)
 
     def __getattr__(self, name):
         if name[:6] == "fetch_":
-            klass = self._resource_class(name[6:])
+            klass = lookup_resource_class_by_name(name[6:])
 
             def _typed_fetch(resource_id: int, **kwargs):
                 return self.fetch(klass, resource_id, **kwargs)
@@ -48,80 +124,8 @@ class ApiManager:
         # Delegate attrs to api_base
         try:
             delegated_attr_val = getattr(self.api_base, name)
-        except AttributeError:
+        except AttributeError as err:
             # Clean up error messaging to AttributeError comes from this class
-            raise AttributeError(f"{type(self)} object has no attribute {name}")
+            raise AttributeError(f"{type(self)} object has no attribute {name}") from err
 
         return delegated_attr_val
-
-    def _get(self, url: str) -> Union[EmptyResponse, requests.Response]:
-        response = requests.get(url, headers=self.request_headers)
-
-        if response.ok:
-            return response
-
-        return EmptyResponse()
-
-    def _post(self, url: str, params: Dict) -> Union[EmptyResponse, requests.Response]:
-        response = requests.post(url, headers=self.request_headers, json=params)
-
-        if response.ok:
-            return response
-
-        return EmptyResponse()
-
-    def _inflate_generator(self, resource_data: Dict) -> Iterator[Resource]:
-        for value in resource_data["_embedded"].values():
-            for data in value:
-                yield self.inflate(data)
-
-        if "next" in resource_data["_links"]:
-            yield from self.fetch(resource_data["_links"]["next"]["href"])
-
-    def inflate(self, resource_data: Dict) -> Union[EmptyResource, Resource, Iterator[Resource]]:
-        resource_data.update({"manager": self})
-
-        # Single resource
-        if "_type" in resource_data:
-            resource_type = resource_data["_type"]
-            klass = self._resource_class(resource_type)
-            return klass(**resource_data)
-
-        # List of resources
-        if "_embedded" in resource_data:
-            return self._inflate_generator(resource_data)
-
-        # Fallback for API base
-        if "_links" in resource_data:
-            return Resource(**resource_data)
-
-        return EmptyResource(manager=self)
-
-    @singledispatchmethod
-    def fetch(self, *args, **kwargs) -> Union[EmptyResource, Resource, Iterator[Resource]]:
-        raise NotImplementedError()
-
-    @fetch.register
-    def _(self, klass: type, resource_id: int) -> Union[EmptyResource, Resource, Iterator[Resource]]:
-        target_url = urljoin(self.api_uri_base, klass.api_path)
-        return self.fetch(target_url.format(resource_id))
-
-    @fetch.register
-    def _(self, url: str) -> Union[EmptyResource, Resource, Iterator[Resource]]:
-        response = self._get(url)
-        response_data = response.json()
-        return self.inflate(response_data)
-
-    @singledispatchmethod
-    def create(self, *args, **kwargs) -> Union[EmptyResource, Resource, Iterator[Resource]]:
-        raise NotImplementedError()
-
-    @create.register
-    def _(self, url: str, **kwargs) -> Union[EmptyResource, Resource, Iterator[Resource]]:
-        return self.create(url, params=kwargs)
-
-    @create.register
-    def _(self, url: str, params: Dict) -> Union[EmptyResource, Resource, Iterator[Resource]]:
-        response = self._post(url, params)
-        response_data = response.json()
-        return self.inflate(response_data)
