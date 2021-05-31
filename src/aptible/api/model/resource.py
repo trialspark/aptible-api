@@ -51,11 +51,11 @@ class Resource(metaclass=ResourceMetaClass):
         raw_value = self._embedded.get(name)
 
         if isinstance(raw_value, dict):
-            return embedded_cache.setdefault(name, self._manager._inflate_type(raw_value))
+            return embedded_cache.setdefault(name, self._manager.inflate(raw_value))
 
         if isinstance(raw_value, list):
             return embedded_cache.setdefault(name, [
-                self._manager._inflate_type(value) for value in raw_value
+                self._manager.inflate(value) for value in raw_value
             ])
 
         raise UnknownEmbeddedResourceType(

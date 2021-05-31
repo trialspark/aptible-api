@@ -80,6 +80,18 @@ class ApiManager:
         raise UnknownResourceInflation(f"Attempt to inflate resource data failed: {resource_data}")
 
     @singledispatchmethod
+    def inflate(self, *args, **kwargs) -> Union[Resource, Iterator[Resource]]:
+        raise NotImplementedError()
+
+    @inflate.register
+    def _(self, response: requests.Response) -> Union[Resource, Iterator[Resource]]:
+        return self._inflate(response)
+
+    @inflate.register
+    def _(self, resource_data: Dict) -> Union[Resource, Iterator[Resource]]:
+        return self._inflate_type(resource_data)
+
+    @singledispatchmethod
     def fetch(self, *args, **kwargs) -> Union[Resource, Iterator[Resource]]:
         raise NotImplementedError()
 
