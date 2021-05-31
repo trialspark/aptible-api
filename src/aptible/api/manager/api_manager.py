@@ -2,26 +2,11 @@ from functools import singledispatchmethod
 from typing import Dict, Iterator, Union
 
 import requests
-from inflection import camelize, singularize
 from requests.compat import urljoin
 
 from .url_util import parse_url_params, response_request_headers, response_request_params
-from .. import model
 from ..error import UnknownResourceInflation
-from ..model import Resource, ResourceClassFactory
-
-
-def lookup_resource_class_by_name(name: str):
-    class_name = singularize(camelize(name))
-
-    klass = None
-    try:
-        klass = getattr(model, class_name)
-    except AttributeError:
-        klass = ResourceClassFactory(class_name)
-        setattr(model, class_name, klass)
-
-    return klass
+from ..model import Resource, lookup_resource_class_by_name
 
 
 class ApiManager:

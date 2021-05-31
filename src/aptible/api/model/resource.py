@@ -28,7 +28,7 @@ class Resource(metaclass=ResourceMetaClass):
 
     def _resolve_attr(self, name: str) -> Any:
         if name == "_type":
-            return self._manager._resource_class(self._attrs['_type'])
+            return self.__class__
 
         if name[-3:] == "_at":
             return datetime.fromisoformat(self._attrs[name].replace('Z', '+00:00'))
