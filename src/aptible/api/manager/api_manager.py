@@ -88,7 +88,7 @@ class ApiManager:
         return self._inflate(response)
 
     @inflate.register
-    def _(self, resource_data: Dict) -> Union[Resource, Iterator[Resource]]:
+    def _(self, resource_data: dict) -> Union[Resource, Iterator[Resource]]:
         return self._inflate_type(resource_data)
 
     @singledispatchmethod
