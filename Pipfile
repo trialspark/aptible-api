@@ -11,6 +11,9 @@ requests = "==2.25.*"
 [dev-packages]
 ipython = "*"
 build = "*"
+pytest-mypy = "*"
+pytest-sugar = "*"
+python-language-server = {extras = ["pycodestyle", "pydocstyle", "pyflakes", "rope", "yapf"], version = "*"}
 
 [requires]
 python_version = "3.8"
