@@ -7,10 +7,10 @@ from .aptible_auth_api import AptibleAuthApi
 class AptibleApi(ApiManager):
     # pylint: disable=inconsistent-return-statements, too-many-arguments
 
-    def __init__(self, api_base: str = "https://api.aptible.com"):
+    def __init__(self, api_url_base: str = "https://api.aptible.com"):
         self._token = None
         self.bearer_token = None
-        super().__init__(api_base=api_base)
+        super().__init__(api_url_base=api_url_base)
 
     def authorize(
         self,
