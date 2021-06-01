@@ -104,10 +104,4 @@ class Resource(metaclass=ResourceMetaClass):
 
     @property
     def api_path(self) -> str:
-        return self._type.api_path
-
-
-def ResourceClassFactory(name):
-    def __init__(self, **kwargs):
-        Resource.__init__(self, **kwargs)
-    return type(name, (Resource, ), {"__init__": __init__})
+        return self._type.api_path.format(self.id)
