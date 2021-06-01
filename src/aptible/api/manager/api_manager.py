@@ -12,9 +12,9 @@ from ..model import Resource, lookup_resource_class_by_name
 class ApiManager:
     # pylint: disable=inconsistent-return-statements
 
-    def __init__(self, api_base: str):
-        self.api_uri_base = api_base
-        self.api_base = self.fetch(self.api_uri_base)
+    def __init__(self, api_url_base: str):
+        self.api_url_base = api_url_base
+        self.api_base = self.fetch(self.api_url_base)
 
     @property
     def request_headers(self) -> Dict:
@@ -103,12 +103,13 @@ class ApiManager:
 
     @fetch.register
     def _(self, klass: type, resource_id: int, **kwargs) -> Union[Resource, Iterator[Resource]]:
-        target_url_template = urljoin(self.api_base, klass.api_path)
+        target_url_template = urljoin(self.api_url_base, klass.api_path)
         target_url = target_url_template.format(resource_id)
         return self.fetch(target_url, **kwargs)
 
     def create(self, url: str, **kwargs) -> Union[Resource, Iterator[Resource]]:
-        kwargs = kwargs if 'data' in kwargs else {'data': kwargs}
+        kwargs = kwargs if 'json' in kwargs else {'json': kwargs}
+
         response = self._post(url, **kwargs)
         return self._inflate(response)
 

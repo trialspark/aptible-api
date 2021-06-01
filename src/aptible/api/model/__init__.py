@@ -1,7 +1,12 @@
-from .resource import Resource, ResourceClassFactory
-
-
 from inflection import singularize, camelize
+
+from .resource import Resource
+
+
+def ResourceClassFactory(name):
+    def __init__(self, **kwargs):
+        Resource.__init__(self, **kwargs)
+    return type(name, (Resource, ), {"__init__": __init__})
 
 
 def lookup_resource_class_by_name(name: str) -> type:
