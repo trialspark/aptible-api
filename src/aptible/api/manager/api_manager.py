@@ -108,7 +108,8 @@ class ApiManager:
         return self.fetch(target_url, **kwargs)
 
     def create(self, url: str, **kwargs) -> Union[Resource, Iterator[Resource]]:
-        kwargs = kwargs if 'data' in kwargs else {'data': kwargs}
+        kwargs = kwargs if 'json' in kwargs else {'json': kwargs}
+
         response = self._post(url, **kwargs)
         return self._inflate(response)
 
