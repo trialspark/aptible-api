@@ -5,7 +5,7 @@ with open("README.md", "r", encoding="utf-8") as fh:
 
 setuptools.setup(
     name="aptible-api",
-    version="0.3.0",
+    version="0.3.1",
     author="Zachary Elliott",
     author_email="zellio@trialspark.com",
     description="Object Oriented interface for Aptible API",
